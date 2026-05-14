@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Finance Tracker</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+     <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+   
+</head>
+
+
+<body>
+    <div class="container">
+
+    <a href="/logout">Logout</a>
+
+    <h1>AI Finance Tracker</h1>
+    <h2>Set Monthly Pocket Money</h2>
+
+<form action="/set_budget" method="POST">
+
+    <input type="number"
+           name="monthly_budget"
+           placeholder="Monthly Pocket Money"
+           required>
+
+    <button type="submit">
+        Save Budget
+    </button>
+
+</form>
+
+<h2>Can I Afford This?</h2>
+
+<form action="/check_afford" method="POST">
+
+    <input type="text"
+           name="item_name"
+           placeholder="Item Name"
+           required>
+
+    <input type="number"
+           name="item_price"
+           placeholder="Item Price"
+           required>
+
+    <button type="submit">
+        Check
+    </button>
+
+</form>
+
+{% if afford_message %}
+
+<h3>{{ afford_message }}</h3>
+
+{% endif %}
+    <h2>Total Income: ₹{{ total_income }}</h2>
+    <h2>Total Expense: ₹{{ total_expense }}</h2>
+    <h2>Current Balance: ₹{{ balance }}</h2>
+    <h2>{{ suggestion }}</h2>
+    <h2>{{ budget_warning}}</h2>
+    <h2>{{ ai_insight}}</h2>
+    <h2>EMI Alerts</h2>
+{% for alert in emi_alerts %}
+    <p>{{ alert }}</p>
+{% endfor %}
+
+    <canvas id="financeChart" width="400" height="200"></canvas>
+    <br><br>
+    <h2>Category Analytics</h2>
+    <canvas id ="categoryChart" width="400" height="200"></canvas>
+    <br><br>
+
+    <form action="/add" method="POST">
+        <input type="number" name="amount" placeholder="Amount" required>
+
+        <select name="type">
+            <option value="income">Income</option>
+            <option value="expense">Expense</option>
+        </select>
+
+        <select name="category">
+            <option>Food</option>
+            <option>Travel</option>
+            <option>Shopping</option>
+            <option>Salary</option>
+        </select>
+
+        <button type="submit">Add</button>
+    </form>
+
+    <h2>Transactions</h2>
+    {% if transactions | length == 0 %}
+    <p> No transactions yet.</p>
+    {% endif %}
+    <ul>
+        {% for t in transactions %}
+        <li>{{ t.type }} - ₹{{ t.amount }} ({{ t.category }})
+
+            <a href="/delete/{{t['id']}}">❌</a>
+        </li>
+        {% endfor %}
+    </ul>
+    
+<h2>Add EMI/ Loan</h2>
+<form action="/add_emi" method="POST">
+    <input type="text" name="name" placeholder="EMI Name" required>
+    <input type="number" name="amount" placeholder="Amount" required>
+    <input type="date" name="due_date" required>
+    <button type="submit">Add EMI</button>
+</form>
+<h2>Your EMIs</h2>
+{% if emis|length == 0 %}
+    <p>No EMI added yet.</p>
+{% endif %}
+
+<ul>
+{% for emi in emis %}
+
+    <li>
+        {{ emi['name'] }} -
+        ₹{{ emi['amount'] }} -
+        Due: {{ emi['due_date'] }}
+    </li>
+
+{% endfor %}
+</ul>
+<h2>Split Expenses With Friends</h2>
+
+<form action="/add_split" method="POST">
+
+    <input type="text"
+           name="friend_name"
+           placeholder="Friend Name"
+           required>
+
+    <input type="number"
+           name="amount"
+           placeholder="Amount Owed"
+           required>
+
+    <input type="text"
+           name="description"
+           placeholder="Description"
+           required>
+
+    <button type="submit">
+        Add Split
+    </button>
+
+</form>
+<h2>Friends Owe You</h2>
+
+<ul>
+
+{% for split in splits %}
+
+<li>
+
+    👤 {{ split['friend_name'] }}
+
+    owes ₹{{ split['amount'] }}
+
+    for {{ split['description'] }}
+
+</li>
+
+{% endfor %}
+
+</ul>
+<h2>
+
+
+💰 Total Money You will Receive:
+₹{{ total_owed }}
+
+</h2>
+<h2>Savings Goals</h2>
+
+<form action="/add_goal" method="POST">
+
+    <input type="text"
+           name="goal_name"
+           placeholder="Goal Name"
+           required>
+
+    <input type="number"
+           name="target_amount"
+           placeholder="Target Amount"
+           required>
+
+    <input type="date"
+           name="target_date"
+           required>
+
+    <button type="submit">
+        Add Goal
+    </button>
+
+</form>
+<ul>
+
+{% for goal in goals %}
+
+<li>
+    🎯 {{ goal['goal_name'] }}
+
+    - ₹{{ goal['target_amount'] }}
+
+    - Target: {{ goal['target_date'] }}
+</li>
+
+{% endfor %}
+
+</ul>
+<h2>Goal Insights</h2>
+
+{% for insight in goal_insights %}
+
+<p>{{ insight }}</p>
+
+{% endfor %}
+{% if daily_limit %}
+
+<h2>
+    💡 Safe Daily Spending:
+    ₹{{ daily_limit | round(2) }}
+</h2>
+
+{% endif %}
+
+
+<script>
+    // ✅ Only render chart if there's actual data
+    const income = {{ total_income | default(0) }};
+    const expense = {{ total_expense | default(0) }};
+
+    if (income > 0 || expense > 0) {
+        const ctx = document.getElementById('financeChart');
+        new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: ['Income', 'Expense'],
+                datasets: [{
+                    label: 'Finance Overview',
+                    data: [income, expense],
+                    backgroundColor: ['#36a2eb', '#ff6384'],  // ✅ Added colors
+                    borderWidth: 1 
+                }]
+            }
+        });
+    }
+</script>
+<script>
+
+const food = {{ food_total | default(0) }};
+const travel = {{ travel_total | default(0) }};
+const shopping = {{ shopping_total | default(0) }};
+const salary = {{ salary_total | default(0) }};
+
+if (food > 0 || travel > 0 || shopping > 0 || salary > 0) {
+
+    const categoryCtx = document.getElementById('categoryChart');
+
+    new Chart(categoryCtx, {
+        type: 'doughnut',
+
+        data: {
+            labels: ['Food', 'Travel', 'Shopping', 'Salary'],
+
+            datasets: [{
+                label: 'Category Analytics',
+
+                data: [
+                    food,
+                    travel,
+                    shopping,
+                    salary
+                ],
+
+                backgroundColor: [
+                    '#ff6384',
+                    '#36a2eb',
+                    '#ffce56',
+                    '#4bc0c0'
+                ],
+
+                borderWidth: 1
+            }]
+        }
+    });
+}
+
+</script>
+
+
+</div>
+</body>
+</html>
